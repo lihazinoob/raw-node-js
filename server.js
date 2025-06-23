@@ -1,7 +1,7 @@
 const http = require("http");
 const handleRegister = require("./routes/register");
 const handleBannerImageUpload = require("./routes/bannerImageUpload");
-const handleBannerFetch = require("./routes/bannerImageFetch");
+const handleBannerFetch  = require("./routes/handleBannerFetch");
 
 const server = http.createServer(async (req, res) => {
   if (req.url.startsWith("/register")) {
