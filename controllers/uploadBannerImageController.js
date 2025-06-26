@@ -9,7 +9,7 @@ function uploadBannerImageController(req, res) {
   const origin = req.headers.origin;
   if(allowedOrigin.includes(origin)) 
   {
-    response.setHeader("Access-Control-Allow-Origin", origin); // Set the allowed origin
+    res.setHeader("Access-Control-Allow-Origin", origin); // Set the allowed origin
   }
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
