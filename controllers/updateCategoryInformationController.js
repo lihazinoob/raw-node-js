@@ -25,6 +25,7 @@ function uploadCategoryInformationController(request, response) {
     response.end();
     return;
   }
+
   // creating a new formidable form instance
   const form = new formidable.IncomingForm({
     multiples: false,
@@ -42,6 +43,7 @@ function uploadCategoryInformationController(request, response) {
         })
       );
     }
+    // console.log("Parsed fields:", fields);
     // checking if the necessary information are present
     if (
       !fields.categoryName ||
@@ -69,7 +71,6 @@ function uploadCategoryInformationController(request, response) {
         })
       );
     }
-
     try {
       // now upload the image in the cloudinary
       const result = await cloudinaryClient.uploader.upload(
@@ -78,25 +79,27 @@ function uploadCategoryInformationController(request, response) {
           folder: "categoryImages",
         }
       );
+
       // get the secure URL of the uploaded image from cloudinary
       const imageURL = result.secure_url;
       console.log("Image uploaded to Cloudinary:", imageURL);
+
       // preparing the category information
       const categoryInformation = {
         name: fields.categoryName[0],
         description: fields.categoryDescription[0],
         imageURL: imageURL,
       };
+
       // now upload the category information to the database
       const { data, error: dbError } = await supabaseClient
         .from("category")
-        .insert([
-          {
-            category_name: categoryInformation.name,
-            category_description: categoryInformation.description,
-            category_image: categoryInformation.imageURL,
-          },
-        ]).select();
+        .update({
+          category_name: categoryInformation.name,
+          category_description: categoryInformation.description,
+          category_image: categoryInformation.imageURL,
+        })
+        .eq("category_name", categoryInformation.name).select();
 
       if (dbError) {
         console.log(
@@ -111,11 +114,23 @@ function uploadCategoryInformationController(request, response) {
           })
         );
       }
+
+      if (!data || data.length === 0) {
+        response.statusCode = 404;
+        return response.end(
+          JSON.stringify({
+            error: "Category not found",
+            message: `No category found with name "${categoryInformation.name}"`,
+          })
+        );
+      }
+
+      // If update was successful
       response.statusCode = 200;
       response.end(
         JSON.stringify({
-          message: "Category information uploaded successfully",
-          categoryInformation: data // return the category information
+          message: "Category information updated successfully",
+          categoryInformation: data[0], // return updated row
         })
       );
     } catch (error) {
