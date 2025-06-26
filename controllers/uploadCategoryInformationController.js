@@ -6,7 +6,7 @@ function uploadCategoryInformationController(request, response) {
   // solving the CORS issue
   const allowedOrigin = [
     "http://localhost:3000",
-    "http://localhost:3001",
+    "http://localhost:5173",
     "https://on-bazar-admin-panel-front-end-rqqu.vercel.app",
   ];
 
@@ -118,6 +118,30 @@ function uploadCategoryInformationController(request, response) {
           categoryInformation: data // return the category information
         })
       );
+
+        // ===================================== Expected JSON format ========================================
+
+      //   {
+      //     "message": "Category information uploaded successfully",
+      //     "categoryInformation": [
+      //         {
+      //             "id": 7,
+      //             "created_at": "2025-06-26T13:16:11.671704+00:00",
+      //             "category_name": "Trouser",
+      //             "category_description": "Lorem ipsum dolor sit amet.",
+      //             "category_image": "https://res.cloudinary.com/ddukqnbjm/image/upload/v1750943770/categoryImages/np8pep2u9ba3xj6d8hrr.jpg"
+      //         }
+      //     ]
+      // }
+
+
+
+
+
+
+
+
+
     } catch (error) {
       console.log("Error uploading image to Cloudinary:", error);
       response.statusCode = 500;
