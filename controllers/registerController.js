@@ -2,7 +2,7 @@ const parseJSONBody = require("../utils/parseJSONBody");
 const validateRegisterData = require("../validators/validateRegister");
 const bcrypt = require("bcryptjs");
 const supabaseClient = require("../lib/supabaseClient");
-const redis = require("../lib/redisClient");
+
 
 async function registerController(req, res) {
   const body = await parseJSONBody(req);
@@ -17,26 +17,6 @@ async function registerController(req, res) {
   }
 
   const { username, email, password } = body;
-
-  // Redis keys
-  const emailKey = `user:email:${email}`;
-  const usernameKey = `user:username:${username}`;
-
-  // Check Redis cache first
-  const [emailExists, usernameExists] = await Promise.all([
-    redis.get(emailKey),
-    redis.get(usernameKey),
-  ]);
-  console.log("Got the email and password in redis cache");
-
-  if (emailExists || usernameExists) {
-    const reasons = [];
-    if (emailExists) reasons.push("Email already exists (cached)");
-    if (usernameExists) reasons.push("Username already exists (cached)");
-    res.statusCode = 409;
-    res.end(JSON.stringify({ error: "Conflict", reasons }));
-    return;
-  }
 
   // Fallback to DB if not in Redis
   const { data: existing, error: dbError } = await supabaseClient
@@ -78,13 +58,7 @@ async function registerController(req, res) {
     res.end(JSON.stringify({ error: error.message }));
     return;
   }
-  // Set Redis cache for email and username
-  console.log("Trying to set Redis cache for email and username");
-  await Promise.all([
-    redis.set(emailKey, "1", { EX: 60 * 60 * 24 }),
-    redis.set(usernameKey, "1", { EX: 60 * 60 * 24 }),
-  ]);
-  console.log("Redis cache set for email and username");
+ 
 
   res.statusCode = 200;
   res.end(
