@@ -1,7 +1,14 @@
 const supabaseClient = require("../lib/supabaseClient");
 async function fetchBannerImageController(request, response) {
+
+
   // solving the CORS issue
-  response.setHeader("Access-Control-Allow-Origin", "http://localhost:3001"); // or "*"
+  const allowedOrigin = ["http://localhost:3000", "http://localhost:3001","https://on-bajar-front-end.vercel.app"]; // Add your allowed origins here
+  const origin = request.headers.origin;
+  if(allowedOrigin.includes(origin)) 
+  {
+    response.setHeader("Access-Control-Allow-Origin", origin); // Set the allowed origin
+  }
   response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   response.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
