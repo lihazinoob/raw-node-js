@@ -3,6 +3,7 @@ async function fetchAllCategoryInformationController(request, response) {
   // solving the CORS issue
   const allowedOrigin = [
     "http://localhost:3000",
+    "http://localhost:3001",
     "http://localhost:5173",
     "https://on-bazar-admin-panel-front-end-rqqu.vercel.app",
   ];
