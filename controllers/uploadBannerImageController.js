@@ -6,7 +6,7 @@ const supabaseClient = require("../lib/supabaseClient");
 function uploadBannerImageController(req, res) {
   // solving the CORS issue
   const allowedOrigin = ["http://localhost:3000", "http://localhost:3001","https://on-bajar-front-end.vercel.app","https://on-bazar-admin-panel-front-end-rqqu.vercel.app"]; // Add your allowed origins here
-  const origin = request.headers.origin;
+  const origin = req.headers.origin;
   if(allowedOrigin.includes(origin)) 
   {
     response.setHeader("Access-Control-Allow-Origin", origin); // Set the allowed origin
