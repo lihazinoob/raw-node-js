@@ -5,6 +5,7 @@ const handleBannerFetch  = require("./routes/handleBannerFetch");
 const handleCategoryInformationUpload = require("./routes/handleCategoryInformationUpload");
 const handleCategoryInformationUpdate = require("./routes/handleCategoryInformationUpdate");
 const handleAllCategoryInformationFetch = require("./routes/handleAllCategoryInformationFetch");
+const handleCategoryInformationFetchById = require("./routes/handleCategoryInformationFetchById");
 
 const server = http.createServer(async (req, res) => {
   if (req.url.startsWith("/register")) {
@@ -29,7 +30,13 @@ const server = http.createServer(async (req, res) => {
   }
   else if(req.url.startsWith("/api/fetchAllCategoryInformation"))
   {
+    
     handleAllCategoryInformationFetch(req,res);
+  }
+  else if(req.url.startsWith("/api/fetchCategoryById"))
+  {
+    // console.log("Handling category information fetch by ID in server.js");
+    handleCategoryInformationFetchById(req,res);
   }
   else {
     // If the request is not a POST request to /register, send a 404 response
