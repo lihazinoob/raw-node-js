@@ -20,8 +20,9 @@ async function deleteCategoryInformationByIdController(
     response.setHeader("Access-Control-Allow-Origin", origin);
   }
 
-  response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  response.setHeader("Access-Control-Allow-Methods", "DELETE, OPTIONS");
   response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  response.setHeader("Content-Type", "application/json");
 
   if (request.method === "OPTIONS") {
     response.writeHead(204); // No Content
