@@ -1,6 +1,7 @@
 const formidable = require("formidable");
 const cloudinaryClient = require("../lib/cloudinaryClient");
 const supabaseClient = require("../lib/supabaseClient");
+const slugify = require("../utils/slugify");
 
 function uploadCategoryInformationController(request, response) {
   // solving the CORS issue
@@ -80,11 +81,12 @@ function uploadCategoryInformationController(request, response) {
       );
       // get the secure URL of the uploaded image from cloudinary
       const imageURL = result.secure_url;
-      console.log("Image uploaded to Cloudinary:", imageURL);
+      const slug = slugify(fields.categoryName[0]);
       // preparing the category information
       const categoryInformation = {
         name: fields.categoryName[0],
         description: fields.categoryDescription[0],
+        slug:slug,
         imageURL: imageURL,
       };
       // now upload the category information to the database
@@ -94,6 +96,7 @@ function uploadCategoryInformationController(request, response) {
           {
             category_name: categoryInformation.name,
             category_description: categoryInformation.description,
+            slug: categoryInformation.slug,
             category_image: categoryInformation.imageURL,
           },
         ]).select();
