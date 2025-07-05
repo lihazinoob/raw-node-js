@@ -9,6 +9,9 @@ const handleCategoryInformationFetchById = require("./routes/handleCategoryInfor
 const handleCategoryInformationDelete = require("./routes/handleCategoryInformationDelete");
 const handleCreateProduct = require("./routes/handleCreateProduct");
 const handleFetchAllProducts = require("./routes/handleFetchAllProducts");
+const handleProductFetchByCategory = require("./routes/handleProductFetchByCategory");
+
+
 const server = http.createServer(async (req, res) => {
   if (req.url.startsWith("/register")) {
     handleRegister(req, res);
@@ -51,6 +54,10 @@ const server = http.createServer(async (req, res) => {
   else if(req.url.startsWith("/api/fetchAllProducts"))
   {
     handleFetchAllProducts(req,res);
+  }
+  else if(req.url.startsWith("/api/fetchProductsByCategory"))
+  {
+    handleProductFetchByCategory(req,res);
   }
   else {
     // If the request is not a POST request to /register, send a 404 response
