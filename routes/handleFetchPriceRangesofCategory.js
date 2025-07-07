@@ -1,4 +1,5 @@
 const fetchPriceRangesofCategoryController = require("../controllers/fetchPriceRangesofCategoryController");
+
 function handleFetchPriceRangesofCategory(request, response) {
   const urlParts = request.url.split("/");
   if (

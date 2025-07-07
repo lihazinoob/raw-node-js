@@ -1,6 +1,11 @@
 const supabaseClient = require("../lib/supabaseClient");
+const { applyCORS, handlePreflight } = require("../utils/corsHelper");
 
 async function fetchPriceRangesofCategoryController(request, response, slug) {
+  if (request.method === "OPTIONS") {
+    handlePreflight(request, response);
+  }
+  applyCORS(request, response);
   const { data: category, error: categoryError } = await supabaseClient
     .from("category")
     .select("*")
@@ -19,7 +24,9 @@ async function fetchPriceRangesofCategoryController(request, response, slug) {
 
   if (productsError) {
     response.statusCode = 500;
-    return response.end(JSON.stringify({ error: "Error fetching product prices" }));
+    return response.end(
+      JSON.stringify({ error: "Error fetching product prices" })
+    );
   }
 
   const prices = products.map((p) => p.product_price);
