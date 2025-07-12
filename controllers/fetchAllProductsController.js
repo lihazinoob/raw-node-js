@@ -1,5 +1,7 @@
 const supabaseClient = require("../lib/supabaseClient");
 const { applyCORS, handlePreflight } = require("../utils/corsHelper");
+const url = require("url");
+const PAGE_SIZE = 10; // Number of products to fetch per page
 
 async function fetchAllProductsController(request, response) {
   if (request.method === "OPTIONS") {
@@ -8,8 +10,20 @@ async function fetchAllProductsController(request, response) {
 
   applyCORS(request, response);
 
+  // parse the url to get the query parameter of page information
+  const parsedURL = url.parse(request.url, true);
+  const page = parseInt(parsedURL.query.page) || 1; // Default to page 1 if not provided
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
   // fetch all the product information from the supabase
-  const { data, error } = await supabaseClient.from("products").select("*");
+  const { data,count, error } = await supabaseClient
+    .from("products")
+    .select("*", {
+      count: "exact",
+    })
+    .range(from, to)
+    .order("created_at", { ascending: false });
   // error handling
   if (error) {
     response.statusCode = 500;
@@ -20,10 +34,15 @@ async function fetchAllProductsController(request, response) {
       })
     );
   }
+  const totalPages = Math.ceil(count / PAGE_SIZE);
+
   // sending the response
   response.statusCode = 200;
   return response.end(
     JSON.stringify({
+      currentPage: page,
+      totalPages: totalPages,
+      totalProducts: count,
       products: data,
       message: "Products fetched successfully",
     })
