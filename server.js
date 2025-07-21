@@ -16,6 +16,8 @@ const handleProductFetchByCategory = require("./routes/handleProductFetchByCateg
 const handleFetchPriceRangesofCategory = require("./routes/handleFetchPriceRangesofCategory");
 const handleProductInformationFetchById = require("./routes/handleProductInformationFetchById");
 const handleProductInformationUpdate = require("./routes/handleProductInformationUpdate");
+const handleDeleteProduct = require("./routes/handleDeleteProduct");
+
 const server = http.createServer(async (req, res) => {
 
   if(req.method === "OPTIONS") {
@@ -78,6 +80,10 @@ const server = http.createServer(async (req, res) => {
   else if(req.url.startsWith("/api/updateProduct")) {
     handleProductInformationUpdate(req,res);
   }
+  else if (req.url.startsWith("/api/deleteProduct")) {
+    handleDeleteProduct(req, res);
+  }
+  
   else {
     // If the request is not a POST request to /register, send a 404 response
     res.statusCode = 404;

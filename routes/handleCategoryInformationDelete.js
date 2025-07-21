@@ -8,7 +8,7 @@ function handleCategoryInformationDelete(request, response) {
     urlParts[2] === "deleteCategoryInformation" &&
     urlParts[3];
 
-  // ✅ Handle preflight OPTIONS request
+
   if (request.method === "OPTIONS" && isMatchingPath) {
     const origin = request.headers.origin;
     const allowedOrigin = [
