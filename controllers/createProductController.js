@@ -22,7 +22,7 @@ function createProductController(request, response) {
     }
 
     const imageFiles = files.productImages;
-
+2
     if (
       !imageFiles ||
       !Array.isArray(imageFiles) ||

@@ -8,9 +8,6 @@ function handleProductInformationFetchById(request,response) {
     // typecast the productId to number
     const productIdNumber = parseInt(productId, 10);
     
-    // Import the controller function to handle fetching product information by ID
-    
-    
     // Call the controller function with the request, response, and product ID
     fetchProductInformationByIdController(request, response, productIdNumber);
   }

@@ -1,4 +1,7 @@
 const http = require("http");
+const { handlePreflight } = require("./utils/corsHelper");
+
+
 const handleRegister = require("./routes/register");
 const handleBannerImageUpload = require("./routes/bannerImageUpload");
 const handleBannerFetch  = require("./routes/handleBannerFetch");
@@ -12,8 +15,13 @@ const handleFetchAllProducts = require("./routes/handleFetchAllProducts");
 const handleProductFetchByCategory = require("./routes/handleProductFetchByCategory");
 const handleFetchPriceRangesofCategory = require("./routes/handleFetchPriceRangesofCategory");
 const handleProductInformationFetchById = require("./routes/handleProductInformationFetchById");
-
+const handleProductInformationUpdate = require("./routes/handleProductInformationUpdate");
 const server = http.createServer(async (req, res) => {
+
+  if(req.method === "OPTIONS") {
+    return handlePreflight(req, res);
+  }
+
   if (req.url.startsWith("/register")) {
     handleRegister(req, res);
   } 
@@ -66,6 +74,9 @@ const server = http.createServer(async (req, res) => {
   }
   else if(req.url.startsWith("/api/fetchProductById")) {
     handleProductInformationFetchById(req,res);
+  }
+  else if(req.url.startsWith("/api/updateProduct")) {
+    handleProductInformationUpdate(req,res);
   }
   else {
     // If the request is not a POST request to /register, send a 404 response
