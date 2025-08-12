@@ -1,153 +1,144 @@
-// Updated controller to support 3–5 image uploads with debugging logs
-const { applyCORS, handlePreflight } = require("../utils/corsHelper");
 const formidable = require("formidable");
 const cloudinaryClient = require("../lib/cloudinaryClient");
 const supabaseClient = require("../lib/supabaseClient");
+const { applyCORS, handlePreflight } = require("../utils/corsHelper");
 
-function createProductController(request, response) {
-  if (request.method === "OPTIONS") {
-    return handlePreflight(request, response);
-  }
-
-  applyCORS(request, response);
+async function createProductController(req, res) {
+  if (req.method === "OPTIONS") return handlePreflight(req, res);
+  applyCORS(req, res);
 
   const form = new formidable.IncomingForm({ multiples: true });
 
-  form.parse(request, async (error, fields, files) => {
-    if (error) {
-      response.statusCode = 400;
-      return response.end(
-        JSON.stringify({ error: "Form parse error", message: error.message })
+  form.parse(req, async (err, fields, files) => {
+    if (err) {
+      res.statusCode = 400;
+      return res.end(
+        JSON.stringify({ error: "Form parse error", message: err.message })
       );
     }
 
-    const imageFiles = files.productImages;
-2
+    // 1️⃣ Parse productData JSON
+    let productData;
+    try {
+      productData = JSON.parse(fields.productData[0]);
+    } catch (e) {
+      res.statusCode = 400;
+      return res.end(JSON.stringify({ error: "Invalid productData JSON" }));
+    }
+
+    // 2️⃣ Enhanced Validation
+    if (!productData.name || typeof productData.name !== "string") {
+      res.statusCode = 400;
+      return res.end(
+        JSON.stringify({ error: "name is required and must be a string" })
+      );
+    }
     if (
-      !imageFiles ||
-      !Array.isArray(imageFiles) ||
-      imageFiles.length < 3 ||
-      imageFiles.length > 5
+      !productData.description ||
+      typeof productData.description !== "string"
     ) {
-      response.statusCode = 400;
-      return response.end(
+      res.statusCode = 400;
+      return res.end(
         JSON.stringify({
-          error: "Invalid image count",
-          message: "You must upload between 3 and 5 product images.",
+          error: "description is required and must be a string",
         })
       );
     }
+    if (isNaN(parseFloat(productData.productPrice))) {
+      res.statusCode = 400;
+      return res.end(
+        JSON.stringify({
+          error: "productPrice is required and must be a number",
+        })
+      );
+    }
+    if (!Array.isArray(productData.sizes)) {
+      res.statusCode = 400;
+      return res.end(JSON.stringify({ error: "sizes must be an array" }));
+    }
+    // Add more validations as needed (e.g., categoryId, salesPercentage)
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
+    // 3️⃣ Calculate total quantity
+    const totalQuantity = productData.sizes.reduce(
+      (sum, s) => sum + parseInt(s.quantity || 0, 10),
+      0
+    );
+
+    // 4️⃣ Extract all image files (image_0, image_1, ...)
+    const imageFiles = Object.keys(files)
+      .filter((key) => key.startsWith("image_"))
+      .map((key) => files[key]);
+
+    if (imageFiles.length < 1) {
+      res.statusCode = 400;
+      return res.end(JSON.stringify({ error: "At least 1 image required" }));
+    }
+
+    // 5️⃣ Upload images to Cloudinary with error handling
+    const imageURLs = [];
     for (let file of imageFiles) {
-      if (!allowedTypes.includes(file.mimetype)) {
-        // console.warn("[Validation] Invalid file type detected:", file.mimetype);
-        response.statusCode = 400;
-        return response.end(
+      try {
+        // Debug: Log the file object to inspect its structure
+        console.log("File object:", file);
+        // Handle case where file might be an array of PersistentFile objects
+        const fileObj = Array.isArray(file) ? file[0] : file;
+        if (!fileObj || !fileObj.filepath) {
+          throw new Error("File path is missing in uploaded file");
+        }
+        const result = await cloudinaryClient.uploader.upload(
+          fileObj.filepath,
+          {
+            folder: "productImages",
+          }
+        );
+        imageURLs.push(result.secure_url);
+      } catch (uploadErr) {
+        res.statusCode = 500;
+        return res.end(
           JSON.stringify({
-            error: "Invalid file type",
-            message: "Images must be in JPG, JPEG, or PNG format.",
+            error: "Image upload failed",
+            message: uploadErr.message,
           })
         );
       }
     }
+    // 6️⃣ Map frontend data to schema fields
+    const dbProduct = {
+      product_name: productData.name,
+      product_description: productData.description,
+      product_price: parseFloat(productData.productPrice),
+      product_sale_percentage: parseInt(productData.salesPercentage, 10) || 0, // Default to 0 if missing
+      is_featured_product: !!productData.isFeatured, // Ensure boolean
+      is_new_product: !!productData.isNew,
+      product_quantity: totalQuantity,
+      product_colors: [], // Empty array since not provided; adjust if frontend adds colors
+      product_category_id: parseInt(productData.categoryId, 10),
+      is_sold_out: !!productData.isSoldOut,
+      product_image: imageURLs, // Array of URLs
+      product_size: productData.sizes, // JSONB handles array of objects
+      // Ignore calculatedPriceAfterDiscount and totalProducts
+    };
 
-    try {
-      // console.log("[Controller] Uploading images to Cloudinary...");
-      const imageURLs = [];
-      for (let file of imageFiles) {
-        const result = await cloudinaryClient.uploader.upload(file.filepath, {
-          folder: "productImages",
-        });
-        imageURLs.push(result.secure_url);
-      }
-      // console.log("[Controller] Uploaded image URLs:", imageURLs);
+    // 7️⃣ Insert into Supabase
+    const { data, error } = await supabaseClient
+      .from("products")
+      .insert([dbProduct])
+      .select();
 
-      const {
-        productName,
-        productDescription,
-        price,
-        salesPercent,
-        isFeatured,
-        isNew,
-        isSoldOut,
-        quantity,
-        colors,
-        sizes,
-        categoryId,
-      } = fields;
-      console.log("The fields received:", fields);
-
-      const parsedPrice = parseFloat(price[0]);
-      const parsedQuantity = parseInt(quantity[0]);
-      const parsedColors = JSON.parse(colors[0]);
-      const parsedSizes = JSON.parse(sizes[0]);
-      const parsedCategoryId = JSON.parse(categoryId[0]);
-      const parsedSalePercentage =
-        salesPercent && salesPercent[0].trim() !== ""
-          ? parseInt(salesPercent[0])
-          : 0;
-
-      const featured = isFeatured[0] === "true";
-      const newProduct = isNew[0] === "true";
-      const soldOut = isSoldOut[0] === "true";
-
-      console.log("Data being inserted into DB:", {
-        product_name: productName[0],
-        product_description: productDescription[0],
-        product_price: parsedPrice,
-        product_sale_percentage: parsedSalePercentage,
-        is_featured_product: featured,
-        is_new_product: newProduct,
-        product_quantity: parsedQuantity,
-        product_colors: parsedColors,
-        product_size: parsedSizes,
-        product_category_id: parsedCategoryId,
-        is_sold_out: soldOut,
-        product_image: imageURLs,
-      });
-
-      const { data, error: dbError } = await supabaseClient
-        .from("products")
-        .insert([
-          {
-            product_name: productName[0],
-            product_description: productDescription[0],
-            product_price: parsedPrice,
-            product_sale_percentage: parsedSalePercentage,
-            is_featured_product: featured,
-            is_new_product: newProduct,
-            product_quantity: parsedQuantity,
-            product_colors: parsedColors,
-            product_size: parsedSizes,
-            product_category_id: parsedCategoryId,
-            is_sold_out: soldOut,
-            product_image: imageURLs,
-          },
-        ])
-        .select();
-
-      if (dbError) {
-        response.statusCode = 500;
-        return response.end(
-          JSON.stringify({ error: "Database error", message: dbError.message })
-        );
-      }
-
-      response.statusCode = 200;
-      response.end(
-        JSON.stringify({
-          message: "Product created successfully",
-          product: data[0],
-        })
-      );
-    } catch (uploadError) {
-      console.error("[Error] Upload or insertion failed:", uploadError);
-      response.statusCode = 500;
-      return response.end(
-        JSON.stringify({ error: "Upload error", message: uploadError.message })
+    if (error) {
+      res.statusCode = 500;
+      return res.end(
+        JSON.stringify({ error: "Database error", message: error.message })
       );
     }
+
+    res.statusCode = 200;
+    res.end(
+      JSON.stringify({
+        message: "Product created successfully",
+        product: data[0],
+      })
+    );
   });
 }
 
