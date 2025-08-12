@@ -6,7 +6,8 @@ async function fetchAllCategoryInformationController(request, response) {
     "http://localhost:3001",
     "http://localhost:5173",
     "https://on-bazar-admin-panel-front-end-rqqu.vercel.app",
-    "https://on-bajar-front-end.vercel.app"
+    "https://on-bajar-front-end.vercel.app",
+    "https://on-bazar-admin-panel-new.vercel.app"
   ];
 
   // fetching the origin from the request headers
