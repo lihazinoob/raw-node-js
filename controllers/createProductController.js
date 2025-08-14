@@ -111,7 +111,7 @@ async function createProductController(req, res) {
       is_featured_product: !!productData.isFeatured, // Ensure boolean
       is_new_product: !!productData.isNew,
       product_quantity: totalQuantity,
-      product_colors: [], // Empty array since not provided; adjust if frontend adds colors
+      product_colors: productData.colors || [], // Empty array since not provided; adjust if frontend adds colors
       product_category_id: parseInt(productData.categoryId, 10),
       is_sold_out: !!productData.isSoldOut,
       product_image: imageURLs, // Array of URLs
