@@ -3,20 +3,9 @@ const supabaseClient = require("../lib/supabaseClient");
 const formidable = require("formidable");
 const cloudinaryClient = require("../lib/cloudinaryClient");
 
-
-function updateProductInformationController(request,response,productId) {
-
-
-  
-
+function updateProductInformationController(request, response, productId) {
+  if (request.method === "OPTIONS") return handlePreflight(request, response);
   applyCORS(request, response);
-  if (request.method === "OPTIONS") {
-    handlePreflight(request, response);
-    return;
-  }
-  
-
-  
 
   if (isNaN(productId) || productId <= 0) {
     response.statusCode = 400;
@@ -28,146 +17,160 @@ function updateProductInformationController(request,response,productId) {
     );
   }
 
-  // Parse the form data
-  const form = new formidable.IncomingForm({
-    multiples:true
-  });
+  const form = new formidable.IncomingForm({ multiples: true });
 
-  form.parse(request,async(error,fields,files) =>{
-    if(error) {
-      response.statusCode = 500;
+  form.parse(request, async (err, fields, files) => {
+    if (err) {
+      response.statusCode = 400;
       return response.end(
-        JSON.stringify({
-          error: "Error parsing form data",
-          message: error.message,
-        })
+        JSON.stringify({ error: "Form parse error", message: err.message })
       );
     }
 
-    // Gather images: keep existing + upload new ones
-    let imageURLs  = [];
-    // Existing image URLs from client
-    if (fields.existingImageURLs) {
-      try {
-        imageURLs = JSON.parse(fields.existingImageURLs[0] || fields.existingImageURLs);
-      } catch {
-        imageURLs = [];
-      }
-    }
-    // New uploaded images
-    const imageFiles = files.productImages;
-    let newImages = [];
-    if (imageFiles) {
-      newImages = Array.isArray(imageFiles) ? imageFiles : [imageFiles];
+    // 1️⃣ Parse productData JSON
+    let productData;
+    try {
+      productData = JSON.parse(fields.productData[0]);
+    } catch (e) {
+      response.statusCode = 400;
+      return response.end(JSON.stringify({ error: "Invalid productData JSON" }));
     }
 
-    // Only allow between 3-5 images total
-    const totalImageCount = imageURLs.length + newImages.length;
-    if (totalImageCount < 3 || totalImageCount > 5) {
+    // 2️⃣ Parse existing images if provided
+    let existingImages = [];
+    try {
+      if (fields.existingImages && fields.existingImages[0]) {
+        existingImages = JSON.parse(fields.existingImages[0]);
+      }
+    } catch (e) {
+      response.statusCode = 400;
+      return response.end(JSON.stringify({ error: "Invalid existingImages JSON" }));
+    }
+
+    // 3️⃣ Enhanced Validation
+    if (!productData.name || typeof productData.name !== "string") {
+      response.statusCode = 400;
+      return response.end(
+        JSON.stringify({ error: "name is required and must be a string" })
+      );
+    }
+    if (!productData.description || typeof productData.description !== "string") {
       response.statusCode = 400;
       return response.end(
         JSON.stringify({
-          error: "Invalid image count",
-          message: "Total product images after update must be between 3 and 5.",
+          error: "description is required and must be a string",
         })
       );
     }
+    if (isNaN(parseFloat(productData.productPrice))) {
+      response.statusCode = 400;
+      return response.end(
+        JSON.stringify({
+          error: "productPrice is required and must be a number",
+        })
+      );
+    }
+    if (!Array.isArray(productData.sizes)) {
+      response.statusCode = 400;
+      return response.end(JSON.stringify({ error: "sizes must be an array" }));
+    }
+    if (productData.colors && !Array.isArray(productData.colors)) {
+      response.statusCode = 400;
+      return response.end(JSON.stringify({ error: "colors must be an array" }));
+    }
 
-      // Validate new images
-    const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
-    for (let file of newImages) {
-      if (!allowedTypes.includes(file.mimetype)) {
-        response.statusCode = 400;
+    // 4️⃣ Calculate total quantity (fix the typo)
+    const totalQuantity = productData.sizes.reduce(
+      (sum, s) => sum + parseInt(s.quantity || 0, 10),
+      0
+    );
+
+    // 5️⃣ Handle image updates
+    let finalImageURLs = [];
+    
+    // Add existing images that weren't deleted
+    if (Array.isArray(existingImages)) {
+      finalImageURLs = [...existingImages];
+    }
+
+    // 6️⃣ Upload new images to Cloudinary
+    const imageFiles = Object.keys(files)
+      .filter((key) => key.startsWith("image_"))
+      .map((key) => files[key]);
+
+    for (let file of imageFiles) {
+      try {
+        const fileObj = Array.isArray(file) ? file[0] : file;
+        if (!fileObj || !fileObj.filepath) {
+          throw new Error("File path is missing in uploaded file");
+        }
+        const result = await cloudinaryClient.uploader.upload(
+          fileObj.filepath,
+          {
+            folder: "productImages",
+          }
+        );
+        finalImageURLs.push(result.secure_url);
+      } catch (uploadErr) {
+        response.statusCode = 500;
         return response.end(
           JSON.stringify({
-            error: "Invalid file type",
-            message: "Images must be in JPG, JPEG, or PNG format.",
+            error: "Image upload failed",
+            message: uploadErr.message,
           })
         );
       }
     }
 
-      // Upload new images to Cloudinary
-    try {
-      for (let file of newImages) {
-        const result = await cloudinaryClient.uploader.upload(file.filepath, {
-          folder: "productImages",
-        });
-        imageURLs.push(result.secure_url);
-      }
-    } catch (uploadError) {
-      console.error("[Error] Image upload failed:", uploadError);
-      response.statusCode = 500;
+    // 7️⃣ Validate final image count
+    if (finalImageURLs.length < 1) {
+      response.statusCode = 400;
       return response.end(
-        JSON.stringify({ error: "Image upload error", message: uploadError.message })
+        JSON.stringify({ 
+          error: "At least 1 image required",
+          message: "Product must have at least one image (existing or new)"
+        })
       );
     }
 
-    // Parse all fields
-    const {
-      productName,
-      productDescription,
-      price,
-      salesPercent,
-      isFeatured,
-      isNew,
-      isSoldOut,
-      quantity,
-      colors,
-      sizes,
-      categoryId,
-    } = fields;
-
-    const parsedPrice = parseFloat(price[0]);
-    const parsedQuantity = parseInt(quantity[0]);
-    const parsedColors = JSON.parse(colors[0]);
-    const parsedSizes = JSON.parse(sizes[0]);
-    const parsedCategoryId = JSON.parse(categoryId[0]);
-    const parsedSalePercentage =
-      salesPercent && salesPercent[0].trim() !== ""
-        ? parseInt(salesPercent[0])
-        : 0;
-
-    const featured = isFeatured[0] === "true";
-    const newProduct = isNew[0] === "true";
-    const soldOut = isSoldOut[0] === "true";
-
+    // 8️⃣ Map frontend data to schema fields
     const updateData = {
-      product_name: productName[0],
-      product_description: productDescription[0],
-      product_price: parsedPrice,
-      product_sale_percentage: parsedSalePercentage,
-      is_featured_product: featured,
-      is_new_product: newProduct,
-      product_quantity: parsedQuantity,
-      product_colors: parsedColors,
-      product_size: parsedSizes,
-      product_category_id: parsedCategoryId,
-      is_sold_out: soldOut,
-      product_image: imageURLs,
+      product_name: productData.name,
+      product_description: productData.description,
+      product_price: parseFloat(productData.productPrice),
+      product_sale_percentage: parseInt(productData.salesPercentage, 10) || 0,
+      is_featured_product: !!productData.isFeatured,
+      is_new_product: !!productData.isNew,
+      product_quantity: totalQuantity,
+      product_colors: productData.colors || [],
+      product_category_id: parseInt(productData.categoryId, 10),
+      is_sold_out: !!productData.isSoldOut,
+      product_image: finalImageURLs, // Combined existing + new images
+      product_size: productData.sizes,
     };
 
+    // 9️⃣ Update in Supabase
     try {
-      const {data,error:dbError}  = await supabaseClient
+      const { data, error } = await supabaseClient
         .from("products")
         .update(updateData)
-        .eq("id",productId)
+        .eq("id", productId)
         .select();
-      
-      if(dbError) {
+
+      if (error) {
         response.statusCode = 500;
         return response.end(
-          JSON.stringify({
-            error:"Database Error",
-            message:dbError.message
-          })
+          JSON.stringify({ error: "Database error", message: error.message })
         );
       }
 
       if (!data || data.length === 0) {
         response.statusCode = 404;
         return response.end(
-          JSON.stringify({ error: "Product not found", message: `No product found with id ${productId}` })
+          JSON.stringify({
+            error: "Product not found",
+            message: `No product found with id ${productId}`,
+          })
         );
       }
 
@@ -178,24 +181,16 @@ function updateProductInformationController(request,response,productId) {
           product: data[0],
         })
       );
-
-
-    } catch (error) {
+    } catch (databaseError) {
       response.statusCode = 500;
       return response.end(
-        JSON.stringify({ error: "Product update error", message: error.message })
+        JSON.stringify({
+          error: "Product update error",
+          message: databaseError.message,
+        })
       );
     }
-
-
-    
-
-
-
-
-  })
-
-
-
+  });
 }
+
 module.exports = updateProductInformationController;
